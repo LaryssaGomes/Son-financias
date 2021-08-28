@@ -6,10 +6,12 @@
       "email": "laryssag533@gmail.com"
     }
   ],
-  "require": {},
   "autoload": {
     "psr-4": {
       "SONFin\\": "src/"
     }
+  },
+  "require": {
+    "robmorgan/phinx": "^0.12.7"
   }
 }
