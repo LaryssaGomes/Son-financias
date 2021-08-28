@@ -1,3 +1,5 @@
 ﻿# Son-financias
- 
- ### Aplicando migrações 
+
+### Aplicando migrações
+
+seed Dados de teste

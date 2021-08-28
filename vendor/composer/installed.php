@@ -6,7 +6,7 @@
     'aliases' => 
     array (
     ),
-    'reference' => 'fda04d138ca12d4bec766f5ba1b4be73ccc2ee31',
+    'reference' => 'd7cc3d9b481c462fbe7513db7e12637f1c8ee289',
     'name' => 'jmbtj/financias-php',
   ),
   'versions' => 
@@ -47,6 +47,15 @@
       ),
       'reference' => '4259ae4154e639557af751ae719d58253a79282a',
     ),
+    'fzaninotto/faker' => 
+    array (
+      'pretty_version' => 'v1.5.0',
+      'version' => '1.5.0.0',
+      'aliases' => 
+      array (
+      ),
+      'reference' => 'd0190b156bcca848d401fb80f31f504f37141c8d',
+    ),
     'jmbtj/financias-php' => 
     array (
       'pretty_version' => 'dev-main',
@@ -54,7 +63,7 @@
       'aliases' => 
       array (
       ),
-      'reference' => 'fda04d138ca12d4bec766f5ba1b4be73ccc2ee31',
+      'reference' => 'd7cc3d9b481c462fbe7513db7e12637f1c8ee289',
     ),
     'psr/container' => 
     array (

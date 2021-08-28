@@ -33,6 +33,10 @@ class ComposerStaticInit286c71e9174cd081a606a5a610cae644
             'Psr\\Container\\' => 14,
             'Phinx\\' => 6,
         ),
+        'F' => 
+        array (
+            'Faker\\' => 6,
+        ),
         'C' => 
         array (
             'Cake\\Utility\\' => 13,
@@ -90,6 +94,10 @@ class ComposerStaticInit286c71e9174cd081a606a5a610cae644
         'Phinx\\' => 
         array (
             0 => __DIR__ . '/..' . '/robmorgan/phinx/src/Phinx',
+        ),
+        'Faker\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/fzaninotto/faker/src/Faker',
         ),
         'Cake\\Utility\\' => 
         array (
