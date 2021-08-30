@@ -3,12 +3,13 @@
 
 use Phinx\Seed\AbstractSeed;
 
+
 class CategoryCostsSeeder extends AbstractSeed
 {
 
     public function run()
     {
-        $faker = \Faker\Factory::create('pt_BR');
+        $faker = Faker\Factory::create();
         $faker->addProvider($this);
         $categoryCosts = $this->table("category_costs");
         $data = [];

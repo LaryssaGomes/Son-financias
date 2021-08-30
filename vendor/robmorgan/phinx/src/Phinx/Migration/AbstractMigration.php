@@ -1,15 +1,35 @@
 <?php
-
 /**
- * MIT License
- * For full license information, please view the LICENSE file that was distributed with this source code.
+ * Phinx
+ *
+ * (The MIT license)
+ * Copyright (c) 2015 Rob Morgan
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated * documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ *
+ * @package    Phinx
+ * @subpackage Phinx\Migration
  */
-
 namespace Phinx\Migration;
 
-use Phinx\Db\Adapter\AdapterInterface;
 use Phinx\Db\Table;
-use RuntimeException;
+use Phinx\Db\Adapter\AdapterInterface;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -26,76 +46,79 @@ use Symfony\Component\Console\Output\OutputInterface;
 abstract class AbstractMigration implements MigrationInterface
 {
     /**
-     * @var string
-     */
-    protected $environment;
-
-    /**
-     * @var int
+     * @var float
      */
     protected $version;
 
     /**
-     * @var \Phinx\Db\Adapter\AdapterInterface
+     * @var AdapterInterface
      */
     protected $adapter;
 
     /**
-     * @var \Symfony\Component\Console\Output\OutputInterface
+     * @var OutputInterface
      */
     protected $output;
 
     /**
-     * @var \Symfony\Component\Console\Input\InputInterface
+     * @var InputInterface
      */
     protected $input;
 
     /**
-     * Whether this migration is being applied or reverted
+     * Class Constructor.
      *
-     * @var bool
-     */
-    protected $isMigratingUp = true;
-
-    /**
-     * List of all the table objects created by this migration
-     *
-     * @var array
-     */
-    protected $tables = [];
-
-    /**
-     * @param string $environment Environment Detected
      * @param int $version Migration Version
-     * @param \Symfony\Component\Console\Input\InputInterface|null $input Input
-     * @param \Symfony\Component\Console\Output\OutputInterface|null $output Output
+     * @param InputInterface|null $input
+     * @param OutputInterface|null $output
      */
-    final public function __construct($environment, $version, InputInterface $input = null, OutputInterface $output = null)
+    final public function __construct($version, InputInterface $input = null, OutputInterface $output = null)
     {
-        $this->environment = $environment;
         $this->version = $version;
-
-        if ($input !== null) {
+        if (!is_null($input)){
             $this->setInput($input);
         }
-
-        if ($output !== null) {
+        if (!is_null($output)){
             $this->setOutput($output);
         }
+
+        $this->init();
     }
 
     /**
-     * @inheritDoc
+     * Initialize method.
+     *
+     * @return void
+     */
+    protected function init()
+    {
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function up()
+    {
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function down()
+    {
+    }
+
+    /**
+     * {@inheritdoc}
      */
     public function setAdapter(AdapterInterface $adapter)
     {
         $this->adapter = $adapter;
-
         return $this;
     }
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function getAdapter()
     {
@@ -103,17 +126,16 @@ abstract class AbstractMigration implements MigrationInterface
     }
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function setInput(InputInterface $input)
     {
         $this->input = $input;
-
         return $this;
     }
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function getInput()
     {
@@ -121,17 +143,16 @@ abstract class AbstractMigration implements MigrationInterface
     }
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function setOutput(OutputInterface $output)
     {
         $this->output = $output;
-
         return $this;
     }
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function getOutput()
     {
@@ -139,33 +160,24 @@ abstract class AbstractMigration implements MigrationInterface
     }
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function getName()
     {
-        return static::class;
+        return get_class($this);
     }
 
     /**
-     * @inheritDoc
-     */
-    public function getEnvironment()
-    {
-        return $this->environment;
-    }
-
-    /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function setVersion($version)
     {
         $this->version = $version;
-
         return $this;
     }
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function getVersion()
     {
@@ -173,25 +185,7 @@ abstract class AbstractMigration implements MigrationInterface
     }
 
     /**
-     * @inheritDoc
-     */
-    public function setMigratingUp($isMigratingUp)
-    {
-        $this->isMigratingUp = $isMigratingUp;
-
-        return $this;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function isMigratingUp()
-    {
-        return $this->isMigratingUp;
-    }
-
-    /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function execute($sql)
     {
@@ -199,7 +193,7 @@ abstract class AbstractMigration implements MigrationInterface
     }
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function query($sql)
     {
@@ -207,15 +201,7 @@ abstract class AbstractMigration implements MigrationInterface
     }
 
     /**
-     * @inheritDoc
-     */
-    public function getQueryBuilder()
-    {
-        return $this->getAdapter()->getQueryBuilder();
-    }
-
-    /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function fetchRow($sql)
     {
@@ -223,7 +209,7 @@ abstract class AbstractMigration implements MigrationInterface
     }
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function fetchAll($sql)
     {
@@ -231,20 +217,19 @@ abstract class AbstractMigration implements MigrationInterface
     }
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function insert($table, $data)
     {
-        trigger_error('insert() is deprecated since 0.10.0. Use $this->table($tableName)->insert($data)->save() instead.', E_USER_DEPRECATED);
         // convert to table object
         if (is_string($table)) {
-            $table = new Table($table, [], $this->getAdapter());
+            $table = new Table($table, array(), $this->getAdapter());
         }
         $table->insert($data)->save();
     }
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function createDatabase($name, $options)
     {
@@ -252,7 +237,7 @@ abstract class AbstractMigration implements MigrationInterface
     }
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function dropDatabase($name)
     {
@@ -260,7 +245,7 @@ abstract class AbstractMigration implements MigrationInterface
     }
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function hasTable($tableName)
     {
@@ -268,73 +253,21 @@ abstract class AbstractMigration implements MigrationInterface
     }
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
-    public function table($tableName, $options = [])
+    public function table($tableName, $options = array())
     {
-        $table = new Table($tableName, $options, $this->getAdapter());
-        $this->tables[] = $table;
-
-        return $table;
+        return new Table($tableName, $options, $this->getAdapter());
     }
 
     /**
      * A short-hand method to drop the given database table.
      *
-     * @deprecated since 0.10.0. Use $this->table($tableName)->drop()->save() instead.
-     *
-     * @param string $tableName Table name
-     *
+     * @param string $tableName Table Name
      * @return void
      */
     public function dropTable($tableName)
     {
-        trigger_error('dropTable() is deprecated since 0.10.0. Use $this->table($tableName)->drop()->save() instead.', E_USER_DEPRECATED);
-        $this->table($tableName)->drop()->save();
-    }
-
-    /**
-     * Perform checks on the migration, print a warning
-     * if there are potential problems.
-     *
-     * Right now, the only check is if there is both a `change()` and
-     * an `up()` or a `down()` method.
-     *
-     * @param string|null $direction Direction
-     *
-     * @return void
-     */
-    public function preFlightCheck($direction = null)
-    {
-        if (method_exists($this, MigrationInterface::CHANGE)) {
-            if (
-                method_exists($this, MigrationInterface::UP) ||
-                method_exists($this, MigrationInterface::DOWN)
-            ) {
-                $this->output->writeln(sprintf(
-                    '<comment>warning</comment> Migration contains both change() and/or up()/down() methods.  <options=bold>Ignoring up() and down()</>.'
-                ));
-            }
-        }
-    }
-
-    /**
-     * Perform checks on the migration after completion
-     *
-     * Right now, the only check is whether all changes were committed
-     *
-     * @param string|null $direction direction of migration
-     *
-     * @throws \RuntimeException
-     *
-     * @return void
-     */
-    public function postFlightCheck($direction = null)
-    {
-        foreach ($this->tables as $table) {
-            if ($table->hasPendingActions()) {
-                throw new RuntimeException('Migration has pending actions after execution!');
-            }
-        }
+        $this->table($tableName)->drop();
     }
 }

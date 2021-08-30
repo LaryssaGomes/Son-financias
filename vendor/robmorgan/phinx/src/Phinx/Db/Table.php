@@ -1,81 +1,128 @@
 <?php
-
 /**
- * MIT License
- * For full license information, please view the LICENSE file that was distributed with this source code.
+ * Phinx
+ *
+ * (The MIT license)
+ * Copyright (c) 2015 Rob Morgan
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated * documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ *
+ * @package    Phinx
+ * @subpackage Phinx\Db
  */
-
 namespace Phinx\Db;
 
-use InvalidArgumentException;
-use Phinx\Db\Action\AddColumn;
-use Phinx\Db\Action\AddForeignKey;
-use Phinx\Db\Action\AddIndex;
-use Phinx\Db\Action\ChangeColumn;
-use Phinx\Db\Action\ChangeComment;
-use Phinx\Db\Action\ChangePrimaryKey;
-use Phinx\Db\Action\CreateTable;
-use Phinx\Db\Action\DropForeignKey;
-use Phinx\Db\Action\DropIndex;
-use Phinx\Db\Action\DropTable;
-use Phinx\Db\Action\RemoveColumn;
-use Phinx\Db\Action\RenameColumn;
-use Phinx\Db\Action\RenameTable;
-use Phinx\Db\Adapter\AdapterInterface;
-use Phinx\Db\Plan\Intent;
-use Phinx\Db\Plan\Plan;
 use Phinx\Db\Table\Column;
-use Phinx\Db\Table\Table as TableValue;
-use RuntimeException;
+use Phinx\Db\Table\Index;
+use Phinx\Db\Table\ForeignKey;
+use Phinx\Db\Adapter\AdapterInterface;
 
 /**
+ *
  * This object is based loosely on: http://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/Table.html.
  */
 class Table
 {
     /**
-     * @var \Phinx\Db\Table\Table
+     * @var string
      */
-    protected $table;
-
-    /**
-     * @var \Phinx\Db\Adapter\AdapterInterface|null
-     */
-    protected $adapter;
-
-    /**
-     * @var \Phinx\Db\Plan\Intent
-     */
-    protected $actions;
+    protected $name;
 
     /**
      * @var array
      */
-    protected $data = [];
+    protected $options = array();
 
     /**
+     * @var AdapterInterface
+     */
+    protected $adapter;
+
+    /**
+     * @var array
+     */
+    protected $columns = array();
+
+    /**
+     * @var array
+     */
+    protected $indexes = array();
+
+    /**
+     * @var ForeignKey[]
+     */
+    protected $foreignKeys = array();
+
+    /**
+     * @var array
+     */
+    protected $data = array();
+
+    /**
+     * Class Constuctor.
+     *
      * @param string $name Table Name
      * @param array $options Options
-     * @param \Phinx\Db\Adapter\AdapterInterface|null $adapter Database Adapter
+     * @param AdapterInterface $adapter Database Adapter
      */
-    public function __construct($name, $options = [], AdapterInterface $adapter = null)
+    public function __construct($name, $options = array(), AdapterInterface $adapter = null)
     {
-        $this->table = new TableValue($name, $options);
-        $this->actions = new Intent();
+        $this->setName($name);
+        $this->setOptions($options);
 
-        if ($adapter !== null) {
+        if (null !== $adapter) {
             $this->setAdapter($adapter);
         }
     }
 
     /**
+     * Sets the table name.
+     *
+     * @param string $name Table Name
+     * @return Table
+     */
+    public function setName($name)
+    {
+        $this->name = $name;
+        return $this;
+    }
+
+    /**
      * Gets the table name.
      *
-     * @return string|null
+     * @return string
      */
     public function getName()
     {
-        return $this->table->getName();
+        return $this->name;
+    }
+
+    /**
+     * Sets the table options.
+     *
+     * @param array $options
+     * @return Table
+     */
+    public function setOptions($options)
+    {
+        $this->options = $options;
+        return $this;
     }
 
     /**
@@ -85,63 +132,35 @@ class Table
      */
     public function getOptions()
     {
-        return $this->table->getOptions();
-    }
-
-    /**
-     * Gets the table name and options as an object
-     *
-     * @return \Phinx\Db\Table\Table
-     */
-    public function getTable()
-    {
-        return $this->table;
+        return $this->options;
     }
 
     /**
      * Sets the database adapter.
      *
-     * @param \Phinx\Db\Adapter\AdapterInterface $adapter Database Adapter
-     *
-     * @return $this
+     * @param AdapterInterface $adapter Database Adapter
+     * @return Table
      */
     public function setAdapter(AdapterInterface $adapter)
     {
         $this->adapter = $adapter;
-
         return $this;
     }
 
     /**
      * Gets the database adapter.
      *
-     * @throws \RuntimeException
-     *
-     * @return \Phinx\Db\Adapter\AdapterInterface|null
+     * @return AdapterInterface
      */
     public function getAdapter()
     {
-        if (!$this->adapter) {
-            throw new RuntimeException('There is no database adapter set yet, cannot proceed');
-        }
-
         return $this->adapter;
-    }
-
-    /**
-     * Does the table have pending actions?
-     *
-     * @return bool
-     */
-    public function hasPendingActions()
-    {
-        return count($this->actions->getActions()) > 0 || count($this->data) > 0;
     }
 
     /**
      * Does the table exist?
      *
-     * @return bool
+     * @return boolean
      */
     public function exists()
     {
@@ -151,61 +170,43 @@ class Table
     /**
      * Drops the database table.
      *
-     * @return $this
+     * @return void
      */
     public function drop()
     {
-        $this->actions->addAction(new DropTable($this->table));
-
-        return $this;
+        $this->getAdapter()->dropTable($this->getName());
     }
 
     /**
      * Renames the database table.
      *
      * @param string $newTableName New Table Name
-     *
-     * @return $this
+     * @return Table
      */
     public function rename($newTableName)
     {
-        $this->actions->addAction(new RenameTable($this->table, $newTableName));
-
+        $this->getAdapter()->renameTable($this->getName(), $newTableName);
+        $this->setName($newTableName);
         return $this;
     }
 
     /**
-     * Changes the primary key of the database table.
+     * Sets an array of columns waiting to be committed.
+     * Use setPendingColumns
      *
-     * @param string|string[]|null $columns Column name(s) to belong to the primary key, or null to drop the key
-     *
-     * @return $this
+     * @deprecated
+     * @param array $columns Columns
+     * @return Table
      */
-    public function changePrimaryKey($columns)
+    public function setColumns($columns)
     {
-        $this->actions->addAction(new ChangePrimaryKey($this->table, $columns));
-
-        return $this;
-    }
-
-    /**
-     * Changes the comment of the database table.
-     *
-     * @param string|null $comment New comment string, or null to drop the comment
-     *
-     * @return $this
-     */
-    public function changeComment($comment)
-    {
-        $this->actions->addAction(new ChangeComment($this->table, $comment));
-
-        return $this;
+        $this->setPendingColumns($columns);
     }
 
     /**
      * Gets an array of the table columns.
      *
-     * @return \Phinx\Db\Table\Column[]
+     * @return Column[]
      */
     public function getColumns()
     {
@@ -213,35 +214,80 @@ class Table
     }
 
     /**
-     * Gets a table column if it exists.
+     * Sets an array of columns waiting to be committed.
      *
-     * @param string $name Column name
-     *
-     * @return \Phinx\Db\Table\Column|null
+     * @param array $columns Columns
+     * @return Table
      */
-    public function getColumn($name)
+    public function setPendingColumns($columns)
     {
-        $columns = array_filter(
-            $this->getColumns(),
-            function ($column) use ($name) {
-                return $column->getName() === $name;
-            }
-        );
+        $this->columns = $columns;
+        return $this;
+    }
 
-        return array_pop($columns);
+    /**
+     * Gets an array of columns waiting to be committed.
+     *
+     * @return Column[]
+     */
+    public function getPendingColumns()
+    {
+        return $this->columns;
+    }
+
+    /**
+     * Sets an array of columns waiting to be indexed.
+     *
+     * @param array $indexes Indexes
+     * @return Table
+     */
+    public function setIndexes($indexes)
+    {
+        $this->indexes = $indexes;
+        return $this;
+    }
+
+    /**
+     * Gets an array of indexes waiting to be committed.
+     *
+     * @return array
+     */
+    public function getIndexes()
+    {
+        return $this->indexes;
+    }
+
+    /**
+     * Sets an array of foreign keys waiting to be commited.
+     *
+     * @param ForeignKey[] $foreignKeys foreign keys
+     * @return Table
+     */
+    public function setForeignKeys($foreignKeys)
+    {
+        $this->foreignKeys = $foreignKeys;
+        return $this;
+    }
+
+    /**
+     * Gets an array of foreign keys waiting to be commited.
+     *
+     * @return array|ForeignKey[]
+     */
+    public function getForeignKeys()
+    {
+        return $this->foreignKeys;
     }
 
     /**
      * Sets an array of data to be inserted.
      *
      * @param array $data Data
-     *
-     * @return $this
+     * @return Table
      */
     public function setData($data)
     {
         $this->data = $data;
-
         return $this;
     }
 
@@ -256,24 +302,16 @@ class Table
     }
 
     /**
-     * Resets all of the pending data to be inserted
-     *
-     * @return void
-     */
-    public function resetData()
-    {
-        $this->setData([]);
-    }
-
-    /**
      * Resets all of the pending table changes.
      *
      * @return void
      */
     public function reset()
     {
-        $this->actions = new Intent();
-        $this->resetData();
+        $this->setPendingColumns(array());
+        $this->setIndexes(array());
+        $this->setForeignKeys(array());
+        $this->setData(array());
     }
 
     /**
@@ -284,33 +322,40 @@ class Table
      *
      * Valid options can be: limit, default, null, precision or scale.
      *
-     * @param string|\Phinx\Db\Table\Column $columnName Column Name
-     * @param string|\Phinx\Util\Literal|null $type Column Type
+     * @param string|Column $columnName Column Name
+     * @param string $type Column Type
      * @param array $options Column Options
-     *
+     * @throws \RuntimeException
      * @throws \InvalidArgumentException
-     *
-     * @return $this
+     * @return Table
      */
-    public function addColumn($columnName, $type = null, $options = [])
+    public function addColumn($columnName, $type = null, $options = array())
     {
-        if ($columnName instanceof Column) {
-            $action = new AddColumn($this->table, $columnName);
+        // we need an adapter set to add a column
+        if (null === $this->getAdapter()) {
+            throw new \RuntimeException('An adapter must be specified to add a column.');
+        }
+
+        // create a new column object if only strings were supplied
+        if (!$columnName instanceof Column) {
+            $column = new Column();
+            $column->setName($columnName);
+            $column->setType($type);
+            $column->setOptions($options); // map options to column methods
         } else {
-            $action = AddColumn::build($this->table, $columnName, $type, $options);
+            $column = $columnName;
         }
 
         // Delegate to Adapters to check column type
-        if (!$this->getAdapter()->isValidColumnType($action->getColumn())) {
-            throw new InvalidArgumentException(sprintf(
+        if (!$this->getAdapter()->isValidColumnType($column)) {
+            throw new \InvalidArgumentException(sprintf(
                 'An invalid column type "%s" was specified for column "%s".',
-                $type,
-                $action->getColumn()->getName()
+                $column->getType(),
+                $column->getName()
             ));
         }
 
-        $this->actions->addAction($action);
-
+        $this->columns[] = $column;
         return $this;
     }
 
@@ -318,14 +363,11 @@ class Table
      * Remove a table column.
      *
      * @param string $columnName Column Name
-     *
-     * @return $this
+     * @return Table
      */
     public function removeColumn($columnName)
     {
-        $action = RemoveColumn::build($this->table, $columnName);
-        $this->actions->addAction($action);
-
+        $this->getAdapter()->dropColumn($this->getName(), $columnName);
         return $this;
     }
 
@@ -334,35 +376,39 @@ class Table
      *
      * @param string $oldName Old Column Name
      * @param string $newName New Column Name
-     *
-     * @return $this
+     * @return Table
      */
     public function renameColumn($oldName, $newName)
     {
-        $action = RenameColumn::build($this->table, $oldName, $newName);
-        $this->actions->addAction($action);
-
+        $this->getAdapter()->renameColumn($this->getName(), $oldName, $newName);
         return $this;
     }
 
     /**
      * Change a table column type.
      *
-     * @param string $columnName Column Name
-     * @param string|\Phinx\Db\Table\Column|\Phinx\Util\Literal $newColumnType New Column Type
-     * @param array $options Options
-     *
-     * @return $this
+     * @param string        $columnName    Column Name
+     * @param string|Column $newColumnType New Column Type
+     * @param array         $options       Options
+     * @return Table
      */
-    public function changeColumn($columnName, $newColumnType, array $options = [])
+    public function changeColumn($columnName, $newColumnType, $options = array())
     {
-        if ($newColumnType instanceof Column) {
-            $action = new ChangeColumn($this->table, $columnName, $newColumnType);
+        // create a column object if one wasn't supplied
+        if (!$newColumnType instanceof Column) {
+            $newColumn = new Column();
+            $newColumn->setType($newColumnType);
+            $newColumn->setOptions($options);
         } else {
-            $action = ChangeColumn::build($this->table, $columnName, $newColumnType, $options);
+            $newColumn = $newColumnType;
         }
-        $this->actions->addAction($action);
 
+        // if the name was omitted use the existing column name
+        if (null === $newColumn->getName() || strlen($newColumn->getName()) === 0) {
+            $newColumn->setName($columnName);
+        }
+
+        $this->getAdapter()->changeColumn($this->getName(), $columnName, $newColumn);
         return $this;
     }
 
@@ -370,8 +416,7 @@ class Table
      * Checks to see if a column exists.
      *
      * @param string $columnName Column Name
-     *
-     * @return bool
+     * @return boolean
      */
     public function hasColumn($columnName)
     {
@@ -383,31 +428,37 @@ class Table
      *
      * In $options you can specific unique = true/false or name (index name).
      *
-     * @param string|array|\Phinx\Db\Table\Index $columns Table Column(s)
+     * @param string|array|Index $columns Table Column(s)
      * @param array $options Index Options
-     *
-     * @return $this
+     * @return Table
      */
-    public function addIndex($columns, array $options = [])
+    public function addIndex($columns, $options = array())
     {
-        $action = AddIndex::build($this->table, $columns, $options);
-        $this->actions->addAction($action);
+        // create a new index object if strings or an array of strings were supplied
+        if (!$columns instanceof Index) {
+            $index = new Index();
+            if (is_string($columns)) {
+                $columns = array($columns); // str to array
+            }
+            $index->setColumns($columns);
+            $index->setOptions($options);
+        } else {
+            $index = $columns;
+        }
 
+        $this->indexes[] = $index;
         return $this;
     }
 
     /**
      * Removes the given index from a table.
      *
-     * @param string|string[] $columns Columns
-     *
-     * @return $this
+     * @param array $columns Columns
+     * @return Table
      */
     public function removeIndex($columns)
     {
-        $action = DropIndex::build($this->table, is_string($columns) ? [$columns] : $columns);
-        $this->actions->addAction($action);
-
+        $this->getAdapter()->dropIndex($this->getName(), $columns);
         return $this;
     }
 
@@ -415,39 +466,24 @@ class Table
      * Removes the given index identified by its name from a table.
      *
      * @param string $name Index name
-     *
-     * @return $this
+     * @return Table
      */
     public function removeIndexByName($name)
     {
-        $action = DropIndex::buildFromName($this->table, $name);
-        $this->actions->addAction($action);
-
+        $this->getAdapter()->dropIndexByName($this->getName(), $name);
         return $this;
     }
 
     /**
      * Checks to see if an index exists.
      *
-     * @param string|string[] $columns Columns
-     *
-     * @return bool
+     * @param string|array $columns Columns
+     * @param array        $options Options
+     * @return boolean
      */
     public function hasIndex($columns)
     {
         return $this->getAdapter()->hasIndex($this->getName(), $columns);
-    }
-
-    /**
-     * Checks to see if an index specified by name exists.
-     *
-     * @param string $indexName Index name
-     *
-     * @return bool
-     */
-    public function hasIndexByName($indexName)
-    {
-        return $this->getAdapter()->hasIndexByName($this->getName(), $indexName);
     }
 
     /**
@@ -456,46 +492,27 @@ class Table
      * In $options you can specify on_delete|on_delete = cascade|no_action ..,
      * on_update, constraint = constraint name.
      *
-     * @param string|string[] $columns Columns
-     * @param string|\Phinx\Db\Table\Table $referencedTable Referenced Table
-     * @param string|string[] $referencedColumns Referenced Columns
+     * @param string|array $columns Columns
+     * @param string|Table $referencedTable   Referenced Table
+     * @param string|array $referencedColumns Referenced Columns
      * @param array $options Options
-     *
-     * @return $this
+     * @return Table
      */
-    public function addForeignKey($columns, $referencedTable, $referencedColumns = ['id'], $options = [])
+    public function addForeignKey($columns, $referencedTable, $referencedColumns = array('id'), $options = array())
     {
-        $action = AddForeignKey::build($this->table, $columns, $referencedTable, $referencedColumns, $options);
-        $this->actions->addAction($action);
-
-        return $this;
-    }
-
-    /**
-     * Add a foreign key to a database table with a given name.
-     *
-     * In $options you can specify on_delete|on_delete = cascade|no_action ..,
-     * on_update, constraint = constraint name.
-     *
-     * @param string $name The constraint name
-     * @param string|string[] $columns Columns
-     * @param string|\Phinx\Db\Table\Table $referencedTable Referenced Table
-     * @param string|string[] $referencedColumns Referenced Columns
-     * @param array $options Options
-     *
-     * @return $this
-     */
-    public function addForeignKeyWithName($name, $columns, $referencedTable, $referencedColumns = ['id'], $options = [])
-    {
-        $action = AddForeignKey::build(
-            $this->table,
-            $columns,
-            $referencedTable,
-            $referencedColumns,
-            $options,
-            $name
-        );
-        $this->actions->addAction($action);
+        if (is_string($referencedColumns)) {
+            $referencedColumns = array($referencedColumns); // str to array
+        }
+        $fk = new ForeignKey();
+        if ($referencedTable instanceof Table) {
+            $fk->setReferencedTable($referencedTable);
+        } else {
+            $fk->setReferencedTable(new Table($referencedTable, array(), $this->adapter));
+        }
+        $fk->setColumns($columns)
+           ->setReferencedColumns($referencedColumns)
+           ->setOptions($options);
+        $this->foreignKeys[] = $fk;
 
         return $this;
     }
@@ -503,15 +520,20 @@ class Table
     /**
      * Removes the given foreign key from the table.
      *
-     * @param string|string[] $columns Column(s)
-     * @param string|null $constraint Constraint names
-     *
-     * @return $this
+     * @param string|array $columns    Column(s)
+     * @param null|string  $constraint Constraint names
+     * @return Table
      */
     public function dropForeignKey($columns, $constraint = null)
     {
-        $action = DropForeignKey::build($this->table, $columns, $constraint);
-        $this->actions->addAction($action);
+        if (is_string($columns)) {
+            $columns = array($columns);
+        }
+        if ($constraint) {
+            $this->getAdapter()->dropForeignKey($this->getName(), array(), $constraint);
+        } else {
+            $this->getAdapter()->dropForeignKey($this->getName(), $columns);
+        }
 
         return $this;
     }
@@ -519,10 +541,9 @@ class Table
     /**
      * Checks to see if a foreign key exists.
      *
-     * @param string|string[] $columns Column(s)
-     * @param string|null $constraint Constraint names
-     *
-     * @return bool
+     * @param  string|array $columns    Column(s)
+     * @param  null|string  $constraint Constraint names
+     * @return boolean
      */
     public function hasForeignKey($columns, $constraint = null)
     {
@@ -532,45 +553,23 @@ class Table
     /**
      * Add timestamp columns created_at and updated_at to the table.
      *
-     * @param string|null $createdAt Alternate name for the created_at column
-     * @param string|null $updatedAt Alternate name for the updated_at column
-     * @param bool $withTimezone Whether to set the timezone option on the added columns
+     * @param string $createdAtColumnName
+     * @param string $updatedAtColumnName
      *
-     * @return $this
+     * @return Table
      */
-    public function addTimestamps($createdAt = 'created_at', $updatedAt = 'updated_at', $withTimezone = false)
+    public function addTimestamps($createdAtColumnName = 'created_at', $updatedAtColumnName = 'updated_at')
     {
-        $createdAt = $createdAt === null ? 'created_at' : $createdAt;
-        $updatedAt = $updatedAt === null ? 'updated_at' : $updatedAt;
-
-        $this->addColumn($createdAt, 'timestamp', [
-                   'default' => 'CURRENT_TIMESTAMP',
-                   'update' => '',
-                   'timezone' => $withTimezone,
-             ])
-             ->addColumn($updatedAt, 'timestamp', [
-                 'null' => true,
-                 'default' => null,
-                 'update' => 'CURRENT_TIMESTAMP',
-                 'timezone' => $withTimezone,
-             ]);
-
-        return $this;
-    }
-
-    /**
-     * Alias that always sets $withTimezone to true
-     *
-     * @see addTimestamps
-     *
-     * @param string|null $createdAt Alternate name for the created_at column
-     * @param string|null $updatedAt Alternate name for the updated_at column
-     *
-     * @return $this
-     */
-    public function addTimestampsWithTimezone($createdAt = null, $updatedAt = null)
-    {
-        $this->addTimestamps($createdAt, $updatedAt, true);
+        $createdAtColumnName = is_null($createdAtColumnName) ? 'created_at' : $createdAtColumnName;
+        $updatedAtColumnName = is_null($updatedAtColumnName) ? 'updated_at' : $updatedAtColumnName;
+        $this->addColumn($createdAtColumnName, 'timestamp', array(
+                'default' => 'CURRENT_TIMESTAMP',
+                'update' => ''
+            ))
+             ->addColumn($updatedAtColumnName, 'timestamp', array(
+                'null'    => true,
+                'default' => null
+             ));
 
         return $this;
     }
@@ -578,32 +577,25 @@ class Table
     /**
      * Insert data into the table.
      *
-     * @param array $data array of data in the form:
+     * @param $data array of data in the form:
      *              array(
      *                  array("col1" => "value1", "col2" => "anotherValue1"),
      *                  array("col2" => "value2", "col2" => "anotherValue2"),
      *              )
      *              or array("col1" => "value1", "col2" => "anotherValue1")
      *
-     * @return $this
+     * @return Table
      */
     public function insert($data)
     {
         // handle array of array situations
-        $keys = array_keys($data);
-        $firstKey = array_shift($keys);
-        if ($firstKey !== null && is_array($data[$firstKey])) {
+        if (isset($data[0]) && is_array($data[0])) {
             foreach ($data as $row) {
                 $this->data[] = $row;
             }
-
             return $this;
         }
-
-        if (count($data) > 0) {
-            $this->data[] = $data;
-        }
-
+        $this->data[] = $data;
         return $this;
     }
 
@@ -614,7 +606,7 @@ class Table
      */
     public function create()
     {
-        $this->executeActions(false);
+        $this->getAdapter()->createTable($this);
         $this->saveData();
         $this->reset(); // reset pending changes
     }
@@ -622,11 +614,28 @@ class Table
     /**
      * Updates a table from the object instance.
      *
+     * @throws \RuntimeException
      * @return void
      */
     public function update()
     {
-        $this->executeActions(true);
+        if (!$this->exists()) {
+            throw new \RuntimeException('Cannot update a table that doesn\'t exist!');
+        }
+
+        // update table
+        foreach ($this->getPendingColumns() as $column) {
+            $this->getAdapter()->addColumn($this, $column);
+        }
+
+        foreach ($this->getIndexes() as $index) {
+            $this->getAdapter()->addIndex($this, $index);
+        }
+
+        foreach ($this->getForeignKeys() as $foreignKey) {
+            $this->getAdapter()->addForeignKey($this, $foreignKey);
+        }
+
         $this->saveData();
         $this->reset(); // reset pending changes
     }
@@ -638,35 +647,13 @@ class Table
      */
     public function saveData()
     {
-        $rows = $this->getData();
-        if (empty($rows)) {
-            return;
-        }
-
-        $bulk = true;
-        $row = current($rows);
-        $c = array_keys($row);
         foreach ($this->getData() as $row) {
-            $k = array_keys($row);
-            if ($k != $c) {
-                $bulk = false;
-                break;
-            }
+            $this->getAdapter()->insert($this, $row);
         }
-
-        if ($bulk) {
-            $this->getAdapter()->bulkinsert($this->table, $this->getData());
-        } else {
-            foreach ($this->getData() as $row) {
-                $this->getAdapter()->insert($this->table, $row);
-            }
-        }
-
-        $this->resetData();
     }
 
     /**
-     * Immediately truncates the table. This operation cannot be undone
+     * Truncates the table.
      *
      * @return void
      */
@@ -689,36 +676,7 @@ class Table
         } else {
             $this->create(); // create the table
         }
-    }
 
-    /**
-     * Executes all the pending actions for this table
-     *
-     * @param bool $exists Whether or not the table existed prior to executing this method
-     *
-     * @return void
-     */
-    protected function executeActions($exists)
-    {
-        // Renaming a table is tricky, specially when running a reversible migration
-        // down. We will just assume the table already exists if the user commands a
-        // table rename.
-        if (!$exists) {
-            foreach ($this->actions->getActions() as $action) {
-                if ($action instanceof RenameTable) {
-                    $exists = true;
-                    break;
-                }
-            }
-        }
-
-        // If the table does not exist, the last command in the chain needs to be
-        // a CreateTable action.
-        if (!$exists) {
-            $this->actions->addAction(new CreateTable($this->table));
-        }
-
-        $plan = new Plan($this->actions);
-        $plan->execute($this->getAdapter());
+        $this->reset(); // reset pending changes
     }
 }

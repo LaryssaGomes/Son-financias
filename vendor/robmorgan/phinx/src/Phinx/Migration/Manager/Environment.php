@@ -1,18 +1,37 @@
 <?php
-
 /**
- * MIT License
- * For full license information, please view the LICENSE file that was distributed with this source code.
+ * Phinx
+ *
+ * (The MIT license)
+ * Copyright (c) 2015 Rob Morgan
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated * documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ *
+ * @package    Phinx
+ * @subpackage Phinx\Migration\Manager
  */
-
 namespace Phinx\Migration\Manager;
 
-use PDO;
 use Phinx\Db\Adapter\AdapterFactory;
 use Phinx\Db\Adapter\AdapterInterface;
 use Phinx\Migration\MigrationInterface;
 use Phinx\Seed\SeedInterface;
-use RuntimeException;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -29,12 +48,12 @@ class Environment
     protected $options;
 
     /**
-     * @var \Symfony\Component\Console\Input\InputInterface
+     * @var InputInterface
      */
     protected $input;
 
     /**
-     * @var \Symfony\Component\Console\Output\OutputInterface
+     * @var OutputInterface
      */
     protected $output;
 
@@ -49,13 +68,16 @@ class Environment
     protected $schemaTableName = 'phinxlog';
 
     /**
-     * @var \Phinx\Db\Adapter\AdapterInterface
+     * @var AdapterInterface
      */
     protected $adapter;
 
     /**
+     * Class Constructor.
+     *
      * @param string $name Environment Name
      * @param array $options Options
+     * @return Environment
      */
     public function __construct($name, $options)
     {
@@ -66,59 +88,47 @@ class Environment
     /**
      * Executes the specified migration on this environment.
      *
-     * @param \Phinx\Migration\MigrationInterface $migration Migration
+     * @param MigrationInterface $migration Migration
      * @param string $direction Direction
-     * @param bool $fake flag that if true, we just record running the migration, but not actually do the migration
-     *
      * @return void
      */
-    public function executeMigration(MigrationInterface $migration, $direction = MigrationInterface::UP, $fake = false)
+    public function executeMigration(MigrationInterface $migration, $direction = MigrationInterface::UP)
     {
-        $direction = ($direction === MigrationInterface::UP) ? MigrationInterface::UP : MigrationInterface::DOWN;
-        $migration->setMigratingUp($direction === MigrationInterface::UP);
-
         $startTime = time();
+        $direction = ($direction === MigrationInterface::UP) ? MigrationInterface::UP : MigrationInterface::DOWN;
         $migration->setAdapter($this->getAdapter());
 
-        $migration->preFlightCheck($direction);
-
-        if (method_exists($migration, MigrationInterface::INIT)) {
-            $migration->{MigrationInterface::INIT}();
+        // begin the transaction if the adapter supports it
+        if ($this->getAdapter()->hasTransactions()) {
+            $this->getAdapter()->beginTransaction();
         }
 
-        if (!$fake) {
-            // begin the transaction if the adapter supports it
-            if ($this->getAdapter()->hasTransactions()) {
-                $this->getAdapter()->beginTransaction();
-            }
+        // Run the migration
+        if (method_exists($migration, MigrationInterface::CHANGE)) {
+            if ($direction === MigrationInterface::DOWN) {
+                // Create an instance of the ProxyAdapter so we can record all
+                // of the migration commands for reverse playback
 
-            // Run the migration
-            if (method_exists($migration, MigrationInterface::CHANGE)) {
-                if ($direction === MigrationInterface::DOWN) {
-                    // Create an instance of the ProxyAdapter so we can record all
-                    // of the migration commands for reverse playback
-
-                    /** @var \Phinx\Db\Adapter\ProxyAdapter $proxyAdapter */
-                    $proxyAdapter = AdapterFactory::instance()
-                        ->getWrapper('proxy', $this->getAdapter());
-                    $migration->setAdapter($proxyAdapter);
-                    $migration->{MigrationInterface::CHANGE}();
-                    $proxyAdapter->executeInvertedCommands();
-                    $migration->setAdapter($this->getAdapter());
-                } else {
-                    $migration->{MigrationInterface::CHANGE}();
-                }
+                /** @var \Phinx\Db\Adapter\ProxyAdapter $proxyAdapter */
+                $proxyAdapter = AdapterFactory::instance()
+                    ->getWrapper('proxy', $this->getAdapter());
+                $migration->setAdapter($proxyAdapter);
+                /** @noinspection PhpUndefinedMethodInspection */
+                $migration->change();
+                $proxyAdapter->executeInvertedCommands();
+                $migration->setAdapter($this->getAdapter());
             } else {
-                $migration->{$direction}();
+                /** @noinspection PhpUndefinedMethodInspection */
+                $migration->change();
             }
-
-            // commit the transaction if the adapter supports it
-            if ($this->getAdapter()->hasTransactions()) {
-                $this->getAdapter()->commitTransaction();
-            }
+        } else {
+            $migration->{$direction}();
         }
 
-        $migration->postFlightCheck($direction);
+        // commit the transaction if the adapter supports it
+        if ($this->getAdapter()->hasTransactions()) {
+            $this->getAdapter()->commitTransaction();
+        }
 
         // Record it in the database
         $this->getAdapter()->migrated($migration, $direction, date('Y-m-d H:i:s', $startTime), date('Y-m-d H:i:s', time()));
@@ -127,16 +137,12 @@ class Environment
     /**
      * Executes the specified seeder on this environment.
      *
-     * @param \Phinx\Seed\SeedInterface $seed Seed
-     *
+     * @param SeedInterface $seed
      * @return void
      */
     public function executeSeed(SeedInterface $seed)
     {
         $seed->setAdapter($this->getAdapter());
-        if (method_exists($seed, SeedInterface::INIT)) {
-            $seed->{SeedInterface::INIT}();
-        }
 
         // begin the transaction if the adapter supports it
         if ($this->getAdapter()->hasTransactions()) {
@@ -145,7 +151,7 @@ class Environment
 
         // Run the seeder
         if (method_exists($seed, SeedInterface::RUN)) {
-            $seed->{SeedInterface::RUN}();
+            $seed->run();
         }
 
         // commit the transaction if the adapter supports it
@@ -158,13 +164,11 @@ class Environment
      * Sets the environment's name.
      *
      * @param string $name Environment Name
-     *
-     * @return $this
+     * @return Environment
      */
     public function setName($name)
     {
         $this->name = $name;
-
         return $this;
     }
 
@@ -182,13 +186,11 @@ class Environment
      * Sets the environment's options.
      *
      * @param array $options Environment Options
-     *
-     * @return $this
+     * @return Environment
      */
     public function setOptions($options)
     {
         $this->options = $options;
-
         return $this;
     }
 
@@ -205,21 +207,19 @@ class Environment
     /**
      * Sets the console input.
      *
-     * @param \Symfony\Component\Console\Input\InputInterface $input Input
-     *
-     * @return $this
+     * @param InputInterface $input
+     * @return Environment
      */
     public function setInput(InputInterface $input)
     {
         $this->input = $input;
-
         return $this;
     }
 
     /**
      * Gets the console input.
      *
-     * @return \Symfony\Component\Console\Input\InputInterface
+     * @return InputInterface
      */
     public function getInput()
     {
@@ -229,21 +229,19 @@ class Environment
     /**
      * Sets the console output.
      *
-     * @param \Symfony\Component\Console\Output\OutputInterface $output Output
-     *
-     * @return $this
+     * @param OutputInterface $output Output
+     * @return Environment
      */
     public function setOutput(OutputInterface $output)
     {
         $this->output = $output;
-
         return $this;
     }
 
     /**
      * Gets the console output.
      *
-     * @return \Symfony\Component\Console\Output\OutputInterface
+     * @return OutputInterface
      */
     public function getOutput()
     {
@@ -261,8 +259,7 @@ class Environment
     }
 
     /**
-     * Get all migration log entries, indexed by version creation time and sorted in ascending order by the configuration's
-     * version_order option
+     * Get all migration log entries, indexed by version number.
      *
      * @return array
      */
@@ -275,13 +272,11 @@ class Environment
      * Sets the current version of the environment.
      *
      * @param int $version Environment Version
-     *
-     * @return $this
+     * @return Environment
      */
     public function setCurrentVersion($version)
     {
         $this->currentVersion = $version;
-
         return $this;
     }
 
@@ -293,8 +288,8 @@ class Environment
     public function getCurrentVersion()
     {
         // We don't cache this code as the current version is pretty volatile.
-        // that means they're no point in a setter then?
-        // maybe we should cache and call a reset() method every time a migration is run
+        // TODO - that means they're no point in a setter then?
+        // maybe we should cache and call a reset() method everytime a migration is run
         $versions = $this->getVersions();
         $version = 0;
 
@@ -303,71 +298,55 @@ class Environment
         }
 
         $this->setCurrentVersion($version);
-
         return $this->currentVersion;
     }
 
     /**
      * Sets the database adapter.
      *
-     * @param \Phinx\Db\Adapter\AdapterInterface $adapter Database Adapter
-     *
-     * @return $this
+     * @param AdapterInterface $adapter Database Adapter
+     * @return Environment
      */
     public function setAdapter(AdapterInterface $adapter)
     {
         $this->adapter = $adapter;
-
         return $this;
     }
 
     /**
      * Gets the database adapter.
      *
-     * @throws \RuntimeException
-     *
-     * @return \Phinx\Db\Adapter\AdapterInterface
+     * @return AdapterInterface
      */
     public function getAdapter()
     {
         if (isset($this->adapter)) {
             return $this->adapter;
         }
-
-        $options = $this->getOptions();
-        if (isset($options['connection'])) {
-            if (!($options['connection'] instanceof PDO)) {
-                throw new RuntimeException('The specified connection is not a PDO instance');
+        if (isset($this->options['connection'])) {
+            if (!($this->options['connection'] instanceof \PDO)) {
+                throw new \RuntimeException('The specified connection is not a PDO instance');
             }
 
-            $options['connection']->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            $options['adapter'] = $options['connection']->getAttribute(PDO::ATTR_DRIVER_NAME);
+            $this->options['adapter'] = $this->options['connection']->getAttribute(\PDO::ATTR_DRIVER_NAME);
         }
-        if (!isset($options['adapter'])) {
-            throw new RuntimeException('No adapter was specified for environment: ' . $this->getName());
-        }
-
-        $factory = AdapterFactory::instance();
-        $adapter = $factory
-            ->getAdapter($options['adapter'], $options);
-
-        // Automatically time the executed commands
-        $adapter = $factory->getWrapper('timed', $adapter);
-
-        if (isset($options['wrapper'])) {
-            $adapter = $factory
-                ->getWrapper($options['wrapper'], $adapter);
+        if (!isset($this->options['adapter'])) {
+            throw new \RuntimeException('No adapter was specified for environment: ' . $this->getName());
         }
 
-        /** @var \Symfony\Component\Console\Input\InputInterface|null $input */
-        $input = $this->getInput();
-        if ($input) {
+        $adapter = AdapterFactory::instance()
+            ->getAdapter($this->options['adapter'], $this->options);
+
+        if (isset($this->options['wrapper'])) {
+            $adapter = AdapterFactory::instance()
+                ->getWrapper($this->options['wrapper'], $adapter);
+        }
+
+        if ($this->getInput()) {
             $adapter->setInput($this->getInput());
         }
 
-        /** @var \Symfony\Component\Console\Output\OutputInterface|null $output */
-        $output = $this->getOutput();
-        if ($output) {
+        if ($this->getOutput()) {
             $adapter->setOutput($this->getOutput());
         }
 
@@ -386,13 +365,11 @@ class Environment
      * Sets the schema table name.
      *
      * @param string $schemaTableName Schema Table Name
-     *
-     * @return $this
+     * @return Environment
      */
     public function setSchemaTableName($schemaTableName)
     {
         $this->schemaTableName = $schemaTableName;
-
         return $this;
     }
 

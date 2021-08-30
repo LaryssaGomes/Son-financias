@@ -1,8 +1,28 @@
 <?php
-
 /**
- * MIT License
- * For full license information, please view the LICENSE file that was distributed with this source code.
+ * Phinx
+ *
+ * (The MIT license)
+ * Copyright (c) 2015 Rob Morgan
+ * Copyright (c) 2015 Woody Gilk
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated * documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
  */
 
 namespace Phinx\Wrapper;
@@ -20,26 +40,30 @@ use Symfony\Component\Console\Output\StreamOutput;
 class TextWrapper
 {
     /**
-     * @var \Phinx\Console\PhinxApplication
+     * @var PhinxApplication
      */
-    protected $app;
+    private $app;
 
     /**
      * @var array
      */
-    protected $options;
+    private $options = array();
 
     /**
-     * @var int
+     * @var integer
      */
-    protected $exitCode;
+    private $exit_code;
 
     /**
-     * @param \Phinx\Console\PhinxApplication $app Application
-     * @param array $options Options
+     * @param PhinxApplication $app
+     * @param array $options
      */
-    public function __construct(PhinxApplication $app, array $options = [])
+    public function __construct(PhinxApplication $app, array $options = array())
     {
+        $options += array(
+            'environment' => 'development',
+        );
+
         $this->app = $app;
         $this->options = $options;
     }
@@ -47,7 +71,7 @@ class TextWrapper
     /**
      * Get the application instance.
      *
-     * @return \Phinx\Console\PhinxApplication
+     * @return PhinxApplication
      */
     public function getApp()
     {
@@ -56,145 +80,101 @@ class TextWrapper
 
     /**
      * Returns the exit code from the last run command.
-     *
-     * @return int
+     * @return integer
      */
     public function getExitCode()
     {
-        return $this->exitCode;
+        return $this->exit_code;
     }
+
 
     /**
      * Returns the output from running the "status" command.
-     *
-     * @param string|null $env environment name (optional)
-     *
+     * @param  string $env environment name (optional)
      * @return string
      */
     public function getStatus($env = null)
     {
-        $command = ['status'];
-        if ($env ?: $this->hasOption('environment')) {
-            $command += ['-e' => $env ?: $this->getOption('environment')];
-        }
-        if ($this->hasOption('configuration')) {
-            $command += ['-c' => $this->getOption('configuration')];
-        }
-        if ($this->hasOption('parser')) {
-            $command += ['-p' => $this->getOption('parser')];
-        }
-        if ($this->hasOption('format')) {
-            $command += ['-f' => $this->getOption('format')];
-        }
-
+        $command = array(
+            'status',
+            '-e' => $env ?: $this->getOption('environment'),
+            '-c' => $this->getOption('configuration'),
+            '-p' => $this->getOption('parser')
+        );
         return $this->executeRun($command);
     }
 
     /**
      * Returns the output from running the "migrate" command.
-     *
-     * @param string|null $env environment name (optional)
-     * @param string|null $target target version (optional)
-     *
+     * @param  string $env environment name (optional)
+     * @param  string $target target version (optional)
      * @return string
      */
     public function getMigrate($env = null, $target = null)
     {
-        $command = ['migrate'];
-        if ($env ?: $this->hasOption('environment')) {
-            $command += ['-e' => $env ?: $this->getOption('environment')];
-        }
-        if ($this->hasOption('configuration')) {
-            $command += ['-c' => $this->getOption('configuration')];
-        }
-        if ($this->hasOption('parser')) {
-            $command += ['-p' => $this->getOption('parser')];
-        }
+        $command = array(
+            'migrate',
+            '-e' => $env ?: $this->getOption('environment'),
+            '-c' => $this->getOption('configuration'),
+            '-p' => $this->getOption('parser')
+        );
         if ($target) {
-            $command += ['-t' => $target];
+            $command += array('-t' => $target);
         }
-
         return $this->executeRun($command);
     }
 
     /**
      * Returns the output from running the "seed:run" command.
-     *
-     * @param string|null $env Environment name
-     * @param string|null $target Target version
-     * @param string[]|string|null $seed Array of seed names or seed name
-     *
+     * @param  string|null       $env environment name
+     * @param  string|null       $target target version
+     * @param  array|string|null $seed array of seed names or seed name
      * @return string
      */
     public function getSeed($env = null, $target = null, $seed = null)
     {
-        $command = ['seed:run'];
-        if ($env ?: $this->hasOption('environment')) {
-            $command += ['-e' => $env ?: $this->getOption('environment')];
-        }
-        if ($this->hasOption('configuration')) {
-            $command += ['-c' => $this->getOption('configuration')];
-        }
-        if ($this->hasOption('parser')) {
-            $command += ['-p' => $this->getOption('parser')];
-        }
+        $command = array (
+            'seed:run',
+            '-e' => $env?: $this->getOption('environment'),
+            '-c' => $this->getOption('configuration'),
+            '-p' => $this->getOption('parser')
+        );
         if ($target) {
-            $command += ['-t' => $target];
+            $command += array('-t' => $target);
         }
         if ($seed) {
-            $seed = (array)$seed;
-            $command += ['-s' => $seed];
+            $seed = (array) $seed;
+            $command += array('-s' => $seed);
         }
-
         return $this->executeRun($command);
     }
 
     /**
      * Returns the output from running the "rollback" command.
-     *
-     * @param string|null $env Environment name (optional)
-     * @param mixed $target Target version, or 0 (zero) fully revert (optional)
-     *
+     * @param  string $env environment name (optional)
+     * @param  mixed $target target version, or 0 (zero) fully revert (optional)
      * @return string
      */
     public function getRollback($env = null, $target = null)
     {
-        $command = ['rollback'];
-        if ($env ?: $this->hasOption('environment')) {
-            $command += ['-e' => $env ?: $this->getOption('environment')];
-        }
-        if ($this->hasOption('configuration')) {
-            $command += ['-c' => $this->getOption('configuration')];
-        }
-        if ($this->hasOption('parser')) {
-            $command += ['-p' => $this->getOption('parser')];
-        }
+        $command = array(
+            'rollback',
+            '-e' => $env ?: $this->getOption('environment'),
+            '-c' => $this->getOption('configuration'),
+            '-p' => $this->getOption('parser')
+        );
         if (isset($target)) {
             // Need to use isset() with rollback, because -t0 is a valid option!
-            // See https://book.cakephp.org/phinx/0/en/commands.html#the-rollback-command
-            $command += ['-t' => $target];
+            // See http://docs.phinx.org/en/latest/commands.html#the-rollback-command
+            $command += array('-t' => $target);
         }
-
         return $this->executeRun($command);
-    }
-
-    /**
-     * Check option from options array
-     *
-     * @param string $key Key
-     *
-     * @return bool
-     */
-    protected function hasOption($key)
-    {
-        return isset($this->options[$key]);
     }
 
     /**
      * Get option from options array
      *
-     * @param string $key Key
-     *
+     * @param  string $key
      * @return string|null
      */
     protected function getOption($key)
@@ -202,30 +182,26 @@ class TextWrapper
         if (!isset($this->options[$key])) {
             return null;
         }
-
         return $this->options[$key];
     }
 
     /**
      * Set option in options array
      *
-     * @param string $key Key
-     * @param string $value Value
-     *
-     * @return $this
+     * @param  string $key
+     * @param  string $value
+     * @return object
      */
     public function setOption($key, $value)
     {
         $this->options[$key] = $value;
-
         return $this;
     }
 
     /**
      * Execute a command, capturing output and storing the exit code.
      *
-     * @param array $command Command
-     *
+     * @param  array $command
      * @return string
      */
     protected function executeRun(array $command)
@@ -236,7 +212,7 @@ class TextWrapper
 
         // Execute the command, capturing the output in the temporary stream
         // and storing the exit code for debugging purposes.
-        $this->exitCode = $this->app->doRun(new ArrayInput($command), new StreamOutput($stream));
+        $this->exit_code = $this->app->doRun(new ArrayInput($command), new StreamOutput($stream));
 
         // Get the output of the command and close the stream, which will
         // destroy the temporary file.
